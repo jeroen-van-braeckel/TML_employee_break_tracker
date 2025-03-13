@@ -24,32 +24,7 @@ body { font-family: Arial, sans-serif; margin: 20px; background-color: #f9f9f9; 
     table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
     th { background-color: #055cff; color: white; }
-    .timeline-container { width: 100%; height: 30px; background: #ddd; position: relative; margin-top: 10px; }
     .work-time { position: absolute; height: 100%; background: green; }
     .break-time { position: absolute; height: 100%; background: blue; }
 
-
-
-    .timeline {
-        position: relative;
-        width: 100%;
-        height: 50px;
-        border-top: 1px solid #ccc;
-      }
-      .hour-mark {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        width: 1px;
-        background: #ddd;
-      }
-      .shift-segment {
-        position: absolute;
-        top: 10px;
-        height: 30px;
-        border-radius: 5px;
-      }
-      .shift-planned { background: #ccc; }
-      .shift-running { background: #0f0; }
-      .break-segment { background: #00f; }
-      .shift-end { background: #90ee90; }
+  

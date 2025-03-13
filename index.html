@@ -7,7 +7,6 @@
   <title>TML break tracker</title>
 </head>
 <body>
-  <h1>TML break tracker</h1>
 
   <div class="tab-buttons">
     <button onclick="showTab('tracker')">Break Tracker</button>
@@ -39,99 +38,9 @@
     </table>
   </div>
 
-  <div id="visual" class="tab-content">
-    <h2>Shift Overview</h2>
-    <div id="timeline-container"></div>
-  </div>
-  <style>
-    .timeline {
-      position: relative;
-      width: 100%;
-      height: 50px;
-      border-top: 1px solid #ccc;
-    }
-    .hour-mark {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 1px;
-      background: #ddd;
-    }
-    .shift-segment {
-      position: absolute;
-      top: 10px;
-      height: 30px;
-      border-radius: 5px;
-    }
-    .shift-planned { background: #ccc; }
-    .shift-running { background: #0f0; }
-    .break-segment { background: #00f; }
-    .shift-end { background: #90ee90; }
-  </style>
-  
-  <script>
-    function renderTimeline() {
-      const container = document.getElementById("timeline-container");
-      container.innerHTML = "";
-      
-      const startHour = 6; // Earliest hour to show
-      const endHour = 22; // Latest hour to show
-      const totalHours = endHour - startHour;
-      
-      employees.forEach(emp => {
-        const timeline = document.createElement("div");
-        timeline.classList.add("timeline");
-        
-        for (let h = startHour; h <= endHour; h++) {
-          const hourMark = document.createElement("div");
-          hourMark.classList.add("hour-mark");
-          hourMark.style.left = `${((h - startHour) / totalHours) * 100}%`;
-          timeline.appendChild(hourMark);
-        }
-        
-        const shiftStartPercent = ((emp.startShift.getHours() + emp.startShift.getMinutes() / 60 - startHour) / totalHours) * 100;
-        const shiftEndPercent = ((emp.endShift.getHours() + emp.endShift.getMinutes() / 60 - startHour) / totalHours) * 100;
-        
-        const plannedShift = document.createElement("div");
-        plannedShift.classList.add("shift-segment", "shift-planned");
-        plannedShift.style.left = `${shiftStartPercent}%`;
-        plannedShift.style.width = `${shiftEndPercent - shiftStartPercent}%`;
-        timeline.appendChild(plannedShift);
-        
-        const now = new Date();
-        if (now >= emp.startShift && now <= emp.endShift) {
-          const runningShift = document.createElement("div");
-          runningShift.classList.add("shift-segment", "shift-running");
-          runningShift.style.left = `${shiftStartPercent}%`;
-          runningShift.style.width = `${((now - emp.startShift) / (emp.endShift - emp.startShift)) * (shiftEndPercent - shiftStartPercent)}%`;
-          timeline.appendChild(runningShift);
-        }
-        
-        emp.breaks.forEach(brk => {
-          const breakStartPercent = ((brk.start.getHours() + brk.start.getMinutes() / 60 - startHour) / totalHours) * 100;
-          const breakEndPercent = ((brk.end.getHours() + brk.end.getMinutes() / 60 - startHour) / totalHours) * 100;
-          const breakSegment = document.createElement("div");
-          breakSegment.classList.add("shift-segment", "break-segment");
-          breakSegment.style.left = `${breakStartPercent}%`;
-          breakSegment.style.width = `${breakEndPercent - breakStartPercent}%`;
-          timeline.appendChild(breakSegment);
-        });
-        
-        if (emp.calculatedEndTime) {
-          const endTimePercent = ((emp.calculatedEndTime.getHours() + emp.calculatedEndTime.getMinutes() / 60 - startHour) / totalHours) * 100;
-          const endSegment = document.createElement("div");
-          endSegment.classList.add("shift-segment", "shift-end");
-          endSegment.style.left = `${endTimePercent}%`;
-          endSegment.style.width = "2px";
-          timeline.appendChild(endSegment);
-        }
-        
-        container.appendChild(timeline);
-      });
-    }
-  </script>
-  
+<div id="visual" class="tab-content">
 
+</div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="script.js" type="text/javascript"></script>
 </body>
