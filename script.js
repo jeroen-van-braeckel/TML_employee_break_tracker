@@ -205,3 +205,155 @@ function showTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
   document.getElementById(tabId).classList.add('active');
 }
+
+
+
+const START_HOUR = 6; // Start time in hours
+const END_HOUR = 24; // End time in hours
+const TIMELINE_WIDTH = 1200; // Pixel width of the timeline
+
+function renderTimeline() {
+  const data = JSON.parse(localStorage.getItem('employeeData') || '[]');
+
+  const employees = data.sort((a, b) => { if (a.startShift < b.startShift) return -1;
+    if (a.startShift > b.startShift) return 1;
+
+    return 0;
+  });
+
+  const visual = document.getElementById('visual');
+  visual.innerHTML = '';
+
+  const now = new Date();
+
+  // Sticky header with hour markers
+  const header = document.createElement('div');
+  header.className = 'timeline-header';
+  for (let h = START_HOUR; h <= END_HOUR; h++) {
+    const hourPosition = ((h - START_HOUR) / (END_HOUR - START_HOUR)) * TIMELINE_WIDTH;
+    const hourMarker = document.createElement('div');
+    hourMarker.className = 'hour-marker';
+    hourMarker.style.left = `${hourPosition}px`;
+    
+    const hourLabel = document.createElement('div');
+    hourLabel.className = 'hour-label';
+    hourLabel.style.left = `${hourPosition}px`;
+    hourLabel.textContent = `${h}:00`;
+    
+    header.appendChild(hourMarker);
+    header.appendChild(hourLabel);
+  }
+  visual.appendChild(header);
+
+  employees.forEach(employee => {
+    const row = document.createElement('div');
+    row.className = 'timeline-row';
+
+    // Employee name
+    const name = document.createElement('div');
+    name.className = 'timeline-name';
+    name.textContent = employee.name;
+    row.appendChild(name);
+
+    // Timeline bar
+    const bar = document.createElement('div');
+    bar.className = 'timeline-bar';
+    bar.style.width = `${TIMELINE_WIDTH}px`;
+
+    const shiftStart = new Date(employee.startShift);
+    const shiftEnd = new Date(employee.endShift);
+    const calculatedEnd = new Date(employee.calculatedEndTime);
+    const expectedReturn = employee.expectedReturn ? new Date(employee.expectedReturn) : null;
+
+    const totalDuration = shiftEnd - shiftStart;
+    const nowPosition = ((now - shiftStart) / totalDuration) * TIMELINE_WIDTH;
+
+    // Working time (blue)
+    if (now > shiftStart) {
+      const workedWidth = Math.min(nowPosition, TIMELINE_WIDTH);
+      const workedSegment = createSegment(workedWidth, '#4a90e2', `Worked until ${formatTime(now)}`);
+      bar.appendChild(workedSegment);
+    }
+
+    // Remaining time (grey)
+    if (now < shiftEnd) {
+      const remainingWidth = TIMELINE_WIDTH - nowPosition;
+      const remainingSegment = createSegment(nowPosition, '#d3d3d3', `Remaining work time`);
+      bar.appendChild(remainingSegment);
+    }
+
+    // Breaks
+    employee.breaks.forEach(b => {
+      const breakStart = getDateWithTime(shiftStart, b.start);
+      const breakEnd = getDateWithTime(shiftStart, b.end);
+      const breakStartPos = ((breakStart - shiftStart) / totalDuration) * TIMELINE_WIDTH;
+      const breakWidth = ((breakEnd - breakStart) / totalDuration) * TIMELINE_WIDTH;
+      const breakColor = breakEnd < now ? '#4caf50' : '#a5d6a7';
+
+      const breakSegment = createSegment(breakStartPos, breakColor, `Break from ${b.start} to ${b.end}`, breakWidth);
+      bar.appendChild(breakSegment);
+    });
+
+    // Calculated end time (yellow)
+    if (calculatedEnd > shiftStart) {
+      const calcEndPos = ((calculatedEnd - shiftStart) / totalDuration) * TIMELINE_WIDTH;
+      const calcEndSegment = createSegment(calcEndPos, '#ffeb3b', `Calculated end time`);
+      calcEndSegment.style.width = '2px';
+      bar.appendChild(calcEndSegment);
+    }
+
+    // Expected return (purple)
+    if (expectedReturn) {
+      const expReturnPos = ((expectedReturn - shiftStart) / totalDuration) * TIMELINE_WIDTH;
+      const expReturnSegment = createSegment(expReturnPos, '#9c27b0', `Expected return`);
+      expReturnSegment.style.width = '2px';
+      bar.appendChild(expReturnSegment);
+    }
+
+    row.appendChild(bar);
+    visual.appendChild(row);
+  });
+}
+
+function createSegment(left, color, tooltipText, width = 2) {
+  const segment = document.createElement('div');
+  segment.className = 'segment';
+  segment.style.left = `${left}px`;
+  segment.style.width = `${width}px`;
+  segment.style.backgroundColor = color;
+
+  segment.addEventListener('mouseenter', e => showTooltip(e, tooltipText));
+  segment.addEventListener('mouseleave', hideTooltip);
+
+  return segment;
+}
+
+function showTooltip(event, text) {
+  let tooltip = document.querySelector('.tooltip');
+  if (!tooltip) {
+    tooltip = document.createElement('div');
+    tooltip.className = 'tooltip';
+    document.body.appendChild(tooltip);
+  }
+  tooltip.style.left = `${event.pageX + 10}px`;
+  tooltip.style.top = `${event.pageY + 10}px`;
+  tooltip.textContent = text;
+  tooltip.style.display = 'block';
+}
+
+function hideTooltip() {
+  const tooltip = document.querySelector('.tooltip');
+  if (tooltip) tooltip.style.display = 'none';
+}
+
+function getDateWithTime(baseDate, time) {
+  const [hours, minutes] = time.split(':');
+  const date = new Date(baseDate);
+  date.setHours(hours, minutes);
+  return date;
+}
+
+function formatTime(date) {
+  return date.toISOString().substring(11, 16);
+}
+
