@@ -1,6 +1,10 @@
 const fileInput = document.getElementById('fileInput');
 const tableBody = document.querySelector('#employeeTable tbody');
-let employees = [];
+//let employees = [];
+
+const data = JSON.parse(localStorage.getItem('employeeData') || '[]');
+
+let employees = data.sort((a, b) => new Date(a.startShift) - new Date(b.startShift));
 
 fileInput.addEventListener('change', handleFile);
 
@@ -29,7 +33,8 @@ function handleFile(event) {
         breakStartTime: null,
         expectedReturn: null,
         justHadBreak: false,
-        calculatedEndTime: calculatedEndTime
+        calculatedEndTime: calculatedEndTime,
+        totalBreakTime : 0
       };
     });
 
@@ -88,6 +93,7 @@ function renderTable() {
           <td>${emp.name}</td>
           <td><button onclick="toggleBreak(${index})" class="${emp.onBreak ? 'end-break-btn' : 'start-break-btn'}">${emp.onBreak ? 'End Break' : 'Start Break'}</button></td>
           <td>${emp.breakNeeded}'</td>
+          <td>${emp.totalBreakTime}</td>
           <td>${emp.breaks.map((b, i) => `<span class="editable" onclick="editBreak(${index}, ${i})">${b.start} - ${b.end}</span>`).join('<br>') || '-'}</td>
           <td>${emp.onBreak ? getCurrentBreakDuration(emp.breakStartTime) : '-'}</td>
           <td>${emp.expectedReturn || '-'}</td>
@@ -141,15 +147,25 @@ function editBreak(empIndex, breakIndex) {
     else {
       breakEntry.start = newStart;
       breakEntry.end = newEnd;
-      recalculateBreaks(emp);
+      try{
+          recalculateBreaks(emp);
       renderTable();
       saveState();
+      }
+      catch(Exception){
+        alert("Invalid input, please try again ith the format HH:MM")
+        editBreak(empIndex, breakIndex)
+      }
+    
     }
   }
 }
 
 function recalculateBreaks(emp) {
   const totalBreakTime = getTotalBreakTime(emp);
+  if(isNaN(totalBreakTime)){
+    throw new Exception()
+  }
   emp.breakNeeded = Math.max(0, emp.breakNeeded - totalBreakTime);
 }
 
@@ -187,7 +203,7 @@ function clearState() {
 }
 
 function getTotalBreakTime(emp) {
-  return emp.breaks.reduce((sum, b) => {
+  var total =  emp.breaks.reduce((sum, b) => {
     const start = new Date(`1970-01-01T${b.start}`);
     let end = new Date(`1970-01-01T${b.end}`);
     if (end < start) {
@@ -195,10 +211,12 @@ function getTotalBreakTime(emp) {
     }
     return sum + Math.round((end - start) / 60000);
   }, 0);
+
+  emp.totalBreakTime = total;
+  return total;
 }
 
 setInterval(renderTable, 60000);
-
 
 function showTab(tabId) {
   renderTimeline()
@@ -206,40 +224,42 @@ function showTab(tabId) {
   document.getElementById(tabId).classList.add('active');
 }
 
+const START_HOUR = 10; // Start time in hours
+const END_HOUR = 4 + 24; // If next day, add 24
 
+const START_TIMELINE = new Date(employees[0].startShift);
+START_TIMELINE.setHours(START_HOUR, 0, 0, 0);
 
-const START_HOUR = 6; // Start time in hours
-const END_HOUR = 24; // End time in hours
+const END_TIMELINE = new Date(START_TIMELINE);
+END_TIMELINE.setHours(END_HOUR, 0, 0, 0);
+
 const TIMELINE_WIDTH = 1200; // Pixel width of the timeline
 
+function durationToWidth(duration) {
+  const pixelsPerMilliSecond = TIMELINE_WIDTH / (END_TIMELINE - START_TIMELINE);
+  return pixelsPerMilliSecond * duration;
+}
+
 function renderTimeline() {
-  const data = JSON.parse(localStorage.getItem('employeeData') || '[]');
-
-  const employees = data.sort((a, b) => { if (a.startShift < b.startShift) return -1;
-    if (a.startShift > b.startShift) return 1;
-
-    return 0;
-  });
-
   const visual = document.getElementById('visual');
   visual.innerHTML = '';
 
-  const now = new Date();
+  const now = new Date().getTime();
 
   // Sticky header with hour markers
   const header = document.createElement('div');
   header.className = 'timeline-header';
   for (let h = START_HOUR; h <= END_HOUR; h++) {
-    const hourPosition = ((h - START_HOUR) / (END_HOUR - START_HOUR)) * TIMELINE_WIDTH;
+    const hourPosition = durationToWidth((h - START_HOUR) * 60 * 60 * 1000) + 230;
     const hourMarker = document.createElement('div');
     hourMarker.className = 'hour-marker';
     hourMarker.style.left = `${hourPosition}px`;
-    
+
     const hourLabel = document.createElement('div');
     hourLabel.className = 'hour-label';
     hourLabel.style.left = `${hourPosition}px`;
-    hourLabel.textContent = `${h}:00`;
-    
+    hourLabel.textContent = `${h % 24}:00`;
+
     header.appendChild(hourMarker);
     header.appendChild(hourLabel);
   }
@@ -266,19 +286,19 @@ function renderTimeline() {
     const expectedReturn = employee.expectedReturn ? new Date(employee.expectedReturn) : null;
 
     const totalDuration = shiftEnd - shiftStart;
-    const nowPosition = ((now - shiftStart) / totalDuration) * TIMELINE_WIDTH;
+    const nowPosition = durationToWidth(now - shiftStart);
 
     // Working time (blue)
-    if (now > shiftStart) {
+    if (now > shiftStart.getTime()) {
       const workedWidth = Math.min(nowPosition, TIMELINE_WIDTH);
-      const workedSegment = createSegment(workedWidth, '#4a90e2', `Worked until ${formatTime(now)}`);
+      const workedSegment = createSegment(0, '#4a90e2', `Worked until ${new Date(now).toLocaleTimeString()}`, workedWidth);
       bar.appendChild(workedSegment);
     }
 
     // Remaining time (grey)
-    if (now < shiftEnd) {
-      const remainingWidth = TIMELINE_WIDTH - nowPosition;
-      const remainingSegment = createSegment(nowPosition, '#d3d3d3', `Remaining work time`);
+    if (now < shiftEnd.getTime()) {
+      const remainingWidth = durationToWidth(shiftEnd - now);
+      const remainingSegment = createSegment(nowPosition, '#d3d3d3', `Remaining work time`, remainingWidth);
       bar.appendChild(remainingSegment);
     }
 
@@ -286,8 +306,8 @@ function renderTimeline() {
     employee.breaks.forEach(b => {
       const breakStart = getDateWithTime(shiftStart, b.start);
       const breakEnd = getDateWithTime(shiftStart, b.end);
-      const breakStartPos = ((breakStart - shiftStart) / totalDuration) * TIMELINE_WIDTH;
-      const breakWidth = ((breakEnd - breakStart) / totalDuration) * TIMELINE_WIDTH;
+      const breakStartPos = durationToWidth(breakStart - shiftStart);
+      const breakWidth = durationToWidth(breakEnd - breakStart);
       const breakColor = breakEnd < now ? '#4caf50' : '#a5d6a7';
 
       const breakSegment = createSegment(breakStartPos, breakColor, `Break from ${b.start} to ${b.end}`, breakWidth);
@@ -296,15 +316,15 @@ function renderTimeline() {
 
     // Calculated end time (yellow)
     if (calculatedEnd > shiftStart) {
-      const calcEndPos = ((calculatedEnd - shiftStart) / totalDuration) * TIMELINE_WIDTH;
-      const calcEndSegment = createSegment(calcEndPos, '#ffeb3b', `Calculated end time`);
+      const calcEndPos = durationToWidth(calculatedEnd - shiftStart);
+      const calcEndSegment = createSegment(calcEndPos, '#ffeb3b', `Calculated end time: ${calculatedEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
       calcEndSegment.style.width = '2px';
       bar.appendChild(calcEndSegment);
     }
 
     // Expected return (purple)
     if (expectedReturn) {
-      const expReturnPos = ((expectedReturn - shiftStart) / totalDuration) * TIMELINE_WIDTH;
+      const expReturnPos = durationToWidth(expectedReturn - shiftStart);
       const expReturnSegment = createSegment(expReturnPos, '#9c27b0', `Expected return`);
       expReturnSegment.style.width = '2px';
       bar.appendChild(expReturnSegment);
@@ -353,7 +373,5 @@ function getDateWithTime(baseDate, time) {
   return date;
 }
 
-function formatTime(date) {
-  return date.toISOString().substring(11, 16);
-}
+renderTimeline();
 
